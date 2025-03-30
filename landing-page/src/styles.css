@@ -1,0 +1,39 @@
+/* Tailwind CSS import */
+@import "tailwindcss";
+
+/* Theme configuration */
+@layer theme {
+  :root {
+    /* Color scheme for dark mode by default */
+    --color-scheme: dark;
+    
+    /* Container max width - 1280px as specified in requirements */
+    --container-max-width: 1280px;
+  }
+}
+
+/* Base styles */
+html {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #000;
+  color: #f3f4f6;
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+}

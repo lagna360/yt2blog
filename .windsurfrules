@@ -1,0 +1,6 @@
+- vite react project
+- tailwind css
+- keep referring back to REQUIREMENTS.md
+- responsive mobile first design
+- dark mode by default
+- use tailwindcss for styling, this is version 4.0.17 so use the correct syntax and configuration.
