@@ -17,15 +17,15 @@
     "electron:build:mac": "vite build && electron-builder --mac",
     "electron:build:win": "vite build && electron-builder --win",
     "electron:build:linux": "vite build && electron-builder --linux",
-    "publish:mac": "electron-builder --mac --publish always",
-    "publish:win": "electron-builder --win --publish always",
-    "publish:linux": "electron-builder --linux --publish always"
+    "publish:mac": "dotenv -- electron-builder --mac --publish always",
+    "publish:win": "dotenv -- electron-builder --win --publish always",
+    "publish:linux": "dotenv -- electron-builder --linux --publish always"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "electron-is-dev": "^2.0.0",
     "electron-store": "^10.0.1",
-    "electron-updater": "^6.1.7",
+    "electron-updater": "^6.3.0",
     "marked": "^15.0.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -38,6 +38,7 @@
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^8.2.2",
+    "dotenv-cli": "^8.0.0",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",
     "eslint": "^9.21.0",
