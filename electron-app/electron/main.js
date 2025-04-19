@@ -1,9 +1,11 @@
-import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Menu, dialog } from 'electron';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import isDev from 'electron-is-dev';
 import electronUpdater from 'electron-updater';
 import Store from 'electron-store';
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 const { autoUpdater } = electronUpdater;
 
 // Initialize the secure store for API keys
@@ -145,6 +147,7 @@ function createApplicationMenu() {
 }
 
 function createWindow() {
+  const isDev = process.env.IS_DEV === 'true';
   const isMac = process.platform === 'darwin';
   
   // Create the browser window
@@ -156,24 +159,38 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: isDev 
+        ? path.join(__dirname, 'preload.js') 
+        : path.join(__dirname, 'preload.cjs')
     },
     backgroundColor: '#111827', // Dark background color to match dark theme
     titleBarStyle: 'default', // Use standard title bar to avoid overlap issues
     frame: true, // Ensure window has proper frame
   });
 
-  // Load the app
+  // Determine the correct URL to load
   const startUrl = isDev
-    ? 'http://localhost:5173' // Vite dev server
-    : `file://${path.join(__dirname, '../dist/index.html')}`;
+    ? 'http://localhost:5173'
+    : `file://${path.join(__dirname, '../dist/index.html')}`; // Correct path for production
   
-  mainWindow.loadURL(startUrl);
+  console.log('Loading URL:', startUrl);
+  console.log('Current directory:', __dirname);
+  
+  mainWindow.loadURL(startUrl).catch(err => {
+    console.error('Failed to load URL:', err);
+  });
+  
+  // Log any load errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
 
-  // Prevent DevTools from opening automatically
+  // Log when content finishes loading and always open DevTools in production for debugging
   mainWindow.webContents.on('did-finish-load', () => {
-    if (mainWindow.webContents.isDevToolsOpened()) {
-      mainWindow.webContents.closeDevTools();
+    console.log('Content loaded successfully');
+    // Always open DevTools for debugging
+    if (!mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.openDevTools();
     }
   });
 
@@ -260,17 +277,13 @@ ipcMain.handle('get-app-version', () => {
 // File save handler
 ipcMain.handle('save-file', async (event, content, fileName) => {
   try {
-    const { dialog } = require('electron');
-    const { writeFile } = require('fs/promises');
-    const path = require('path');
-    
     const { canceled, filePath } = await dialog.showSaveDialog({
       defaultPath: fileName,
       filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'All Files', extensions: ['*'] }]
     });
     
     if (!canceled && filePath) {
-      await writeFile(filePath, content);
+      await fsPromises.writeFile(filePath, content);
       return { success: true, path: filePath };
     } else {
       return { success: false, error: 'Save cancelled' };

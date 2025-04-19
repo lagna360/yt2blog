@@ -25,6 +25,7 @@ async function killProcessOnPort(port) {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './', // Added this line to ensure relative paths
   plugins: [
     tailwindcss(),
     react(),

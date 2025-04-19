@@ -55,6 +55,8 @@
       "buildResources": "assets",
       "output": "release"
     },
+    "asar": true,
+    "asarUnpack": [],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
