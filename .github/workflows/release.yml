@@ -34,17 +34,26 @@ jobs:
           npm install # Install dependencies
           npm run build # Build the frontend (vite build)
 
-      - name: Publish Electron app
-        working-directory: ./electron-app # Specify the working directory
+      # macOS release build
+      - name: Build & publish macOS
+        if: runner.os == 'macOS'
+        working-directory: ./electron-app
         env:
-          # Use GitHub's automatic token instead of our custom GH_TOKEN
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Use direct commands instead of relying on dotenv
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            npm run electron:build:mac -- --publish always
-          elif [ "$RUNNER_OS" == "Linux" ]; then
-            npm run electron:build:linux -- --publish always
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            npm run electron:build:win -- --publish always
-          fi
+        run: npm run electron:build:mac -- --publish always
+
+      # Linux release build
+      - name: Build & publish Linux
+        if: runner.os == 'Linux'
+        working-directory: ./electron-app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run electron:build:linux -- --publish always
+
+      # Windows release build
+      - name: Build & publish Windows
+        if: runner.os == 'Windows'
+        working-directory: ./electron-app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run electron:build:win -- --publish always
