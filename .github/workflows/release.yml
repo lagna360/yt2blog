@@ -33,14 +33,14 @@ jobs:
       - name: Publish Electron app
         working-directory: ./electron-app # Specify the working directory
         env:
-          # Use the GH_TOKEN secret you'll set up in GitHub repository settings
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Use GitHub's automatic token instead of our custom GH_TOKEN
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Determine the correct publish command based on the OS
+          # Use direct commands instead of relying on dotenv
           if [ "$RUNNER_OS" == "macOS" ]; then
-            npm run publish:mac
+            npm run electron:build:mac -- --publish always
           elif [ "$RUNNER_OS" == "Linux" ]; then
-            npm run publish:linux
+            npm run electron:build:linux -- --publish always
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            npm run publish:win
+            npm run electron:build:win -- --publish always
           fi
