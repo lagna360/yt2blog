@@ -1,0 +1,46 @@
+# .github/workflows/release.yml
+
+name: Release Electron App
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger workflow when a tag starting with 'v' is pushed
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }} # Run on multiple OS provided by GitHub Actions
+
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest] # Define the OS matrix
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4 # Action to check out the code
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4 # Action to set up Node.js
+        with:
+          node-version: '20' # Use Node.js version 20, adjust if needed
+
+      - name: Install dependencies and build
+        working-directory: ./electron-app # Specify the working directory
+        run: |
+          npm install # Install dependencies
+          npm run build # Build the frontend (vite build)
+
+      - name: Publish Electron app
+        working-directory: ./electron-app # Specify the working directory
+        env:
+          # Use the GH_TOKEN secret you'll set up in GitHub repository settings
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # Determine the correct publish command based on the OS
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            npm run publish:mac
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            npm run publish:linux
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            npm run publish:win
+          fi
