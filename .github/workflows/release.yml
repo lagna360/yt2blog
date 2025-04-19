@@ -7,6 +7,10 @@ on:
     tags:
       - 'v*' # Trigger workflow when a tag starting with 'v' is pushed
 
+# Explicitly specify the permissions needed
+permissions:
+  contents: write # This is required for creating releases and uploading assets
+
 jobs:
   release:
     runs-on: ${{ matrix.os }} # Run on multiple OS provided by GitHub Actions
