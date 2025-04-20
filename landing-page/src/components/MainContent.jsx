@@ -1,7 +1,9 @@
 import React from 'react';
 import Slideshow from './Slideshow';
+import { useGitHubRelease } from '../hooks/useGitHubRelease';
 
 function MainContent() {
+  const { version, date, loading, error } = useGitHubRelease();
   return (
     <main className="flex-grow">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -25,9 +27,22 @@ function MainContent() {
         {/* Download Section */}
         <div className="mt-20">
           <h2 className="text-3xl font-bold text-center mb-6">Download YT2Blog</h2>
-          <p className="text-lg text-gray-400 text-center max-w-3xl mx-auto mb-10">
+          <p className="text-lg text-gray-400 text-center max-w-3xl mx-auto mb-4">
             Available for all major platforms. Download the version that works for you.
           </p>
+          
+          {loading ? (
+            <p className="text-center text-gray-400 mb-6">Loading release information...</p>
+          ) : error ? (
+            <p className="text-center text-gray-400 mb-6">Version information unavailable</p>
+          ) : (
+            <p className="text-center text-gray-400 mb-6">
+              <span className="inline-flex items-center bg-gray-800 rounded-full px-3 py-1 text-sm font-medium text-indigo-300 mr-2">
+                v{version}
+              </span>
+              <span>Released on {date}</span>
+            </p>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {/* Mac Download */}
