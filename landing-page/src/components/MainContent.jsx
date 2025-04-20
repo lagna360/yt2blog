@@ -32,16 +32,23 @@ function MainContent() {
           </p>
           
           {loading ? (
-            <p className="text-center text-gray-400 mb-6">Loading release information...</p>
+            <div className="text-center mb-6">
+              <div className="inline-block animate-pulse bg-gray-800 rounded-lg px-4 py-1 text-gray-400">Loading release information...</div>
+            </div>
           ) : error ? (
-            <p className="text-center text-gray-400 mb-6">Version information unavailable</p>
+            <div className="text-center mb-6">
+              <div className="max-w-sm mx-auto bg-gray-800 rounded-lg py-2 px-4">
+                <p className="text-gray-400 font-medium">v1.0.1</p>
+                <p className="text-sm text-gray-500">Released April 20, 2025</p>
+              </div>
+            </div>
           ) : (
-            <p className="text-center text-gray-400 mb-6">
-              <span className="inline-flex items-center bg-gray-800 rounded-full px-3 py-1 text-sm font-medium text-indigo-300 mr-2">
-                v{version}
-              </span>
-              <span>Released on {date}</span>
-            </p>
+            <div className="text-center mb-6">
+              <div className="inline-block bg-gray-800 rounded-lg py-2 px-4">
+                <p className="text-indigo-300 font-medium">v{version}</p>
+                <p className="text-sm text-gray-400">Released {date}</p>
+              </div>
+            </div>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -83,15 +90,30 @@ function MainContent() {
           </div>
           
           {/* Security Note */}
-          <div className="mt-8 text-center text-sm text-gray-400 max-w-3xl mx-auto">
-            <p className="mb-2"><strong>Note:</strong> You may see security warnings when downloading or opening the application.</p>
-            <p className="mb-1">On macOS: If you see a "file is damaged" message, try these solutions:</p>
-            <ul className="list-disc list-inside mb-2 pl-4">
-              <li>Option 1: Run <code>xattr -d com.apple.quarantine /path/to/yt2blog-mac.dmg</code> in Terminal</li>
-              <li>Option 2: Check Security & Privacy settings for an "Open Anyway" option</li>
-            </ul>
-            <p className="mb-1">On Windows: You may need to click "More info" → "Run anyway" if SmartScreen shows a warning.</p>
-            <p>On Linux: You may need to make the AppImage executable with <code>chmod +x yt2blog-linux.AppImage</code> before running it.</p>
+          <div className="mt-8 max-w-2xl mx-auto rounded-lg bg-gray-800/50 p-6">
+            <h4 className="font-semibold text-indigo-300 text-lg mb-3 text-center">Security Notes</h4>
+            <p className="mb-3 text-sm text-gray-300">You may see security warnings when downloading or opening the application.</p>
+            
+            <div className="space-y-4">
+              <div>
+                <h5 className="font-medium text-gray-200 mb-1">On macOS:</h5>
+                <p className="text-sm text-gray-400 mb-2">If you see a "file is damaged" message, try these solutions:</p>
+                <ul className="list-disc list-outside ml-5 text-sm text-gray-400 space-y-1">
+                  <li>Option 1: Run <code className="bg-gray-700 px-1 rounded">xattr -d com.apple.quarantine /path/to/yt2blog-mac.dmg</code> in Terminal</li>
+                  <li>Option 2: Check Security & Privacy settings for an "Open Anyway" option</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h5 className="font-medium text-gray-200 mb-1">On Windows:</h5>
+                <p className="text-sm text-gray-400">You may need to click "More info" → "Run anyway" if SmartScreen shows a warning.</p>
+              </div>
+              
+              <div>
+                <h5 className="font-medium text-gray-200 mb-1">On Linux:</h5>
+                <p className="text-sm text-gray-400">You may need to make the AppImage executable with <code className="bg-gray-700 px-1 rounded">chmod +x yt2blog-linux.AppImage</code> before running it.</p>
+              </div>
+            </div>
           </div>
         </div>
         
