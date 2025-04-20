@@ -35,7 +35,7 @@ const InstructionInput = () => {
   };
   
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6">
+    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6" data-enhancing={isEnhancing ? "true" : "false"}>
       <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Article Instructions</h2>
       
       <div>

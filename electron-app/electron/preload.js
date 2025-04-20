@@ -45,8 +45,18 @@ const initBridge = async () => {
       deleteApiKey: (key) => ipcRenderer.invoke('delete-api-key', key),
       
       // Menu event handlers
-      onMenuNewArticle: (callback) => ipcRenderer.on('menu-new-article', callback),
-      onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
+      onMenuNewArticle: (callback) => {
+        const listener = (event, ...args) => callback(...args);
+        ipcRenderer.on('menu-new-article', listener);
+        // Return a function to remove this specific listener
+        return () => ipcRenderer.removeListener('menu-new-article', listener);
+      },
+      onMenuShowAbout: (callback) => {
+        const listener = (event, ...args) => callback(...args);
+        ipcRenderer.on('menu-show-about', listener);
+        // Return a function to remove this specific listener
+        return () => ipcRenderer.removeListener('menu-show-about', listener);
+      },
       
       // App info
       getAppVersion: () => ipcRenderer.invoke('get-app-version')

@@ -7,19 +7,33 @@ import { resolve } from 'path'
 
 const execPromise = promisify(exec)
 
-// Function to kill process on the default port (5173)
-async function killProcessOnPort(port) {
+// Function to kill Electron and Vite processes properly
+async function killRunningProcesses() {
   try {
-    // For macOS
-    const { stdout } = await execPromise(`lsof -i :${port} -t`)
-    if (stdout.trim()) {
-      const pid = stdout.trim()
-      console.log(`Killing process ${pid} on port ${port}`)
-      await execPromise(`kill -9 ${pid}`)
+    // Kill any Electron processes
+    try {
+      await execPromise('pkill -f "Electron" || true')
+      console.log('Killed existing Electron processes')
+    } catch (electronError) {
+      console.log('No Electron processes found or error killing them:', electronError.message)
+    }
+    
+    // Kill any process running on the Vite port (5173)
+    try {
+      const { stdout } = await execPromise('lsof -i :5173 -t')
+      if (stdout.trim()) {
+        const pids = stdout.trim().split('\n')
+        for (const pid of pids) {
+          console.log(`Killing process ${pid} on port 5173`)
+          await execPromise(`kill -9 ${pid} || true`)
+        }
+      }
+    } catch (portError) {
+      // If no process is found, lsof will return an error, which is fine
+      console.log('No process found on port 5173 or error occurred:', portError.message)
     }
   } catch (error) {
-    // If no process is found, lsof will return an error, which is fine
-    console.log(`No process found on port ${port} or error occurred: ${error.message}`)
+    console.log('Error in killRunningProcesses:', error.message)
   }
 }
 
@@ -30,9 +44,9 @@ export default defineConfig({
     tailwindcss(),
     react(),
     {
-      name: 'kill-port-on-start',
+      name: 'kill-processes-on-start',
       async buildStart() {
-        await killProcessOnPort(5173) // Default Vite port
+        await killRunningProcesses() // Kill any existing Electron and Vite processes
       }
     }
   ],

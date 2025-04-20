@@ -147,7 +147,6 @@ function createApplicationMenu() {
 }
 
 function createWindow() {
-  const isDev = process.env.IS_DEV === 'true';
   const isMac = process.platform === 'darwin';
   
   // Create the browser window
@@ -159,7 +158,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: isDev 
+      preload: isDev
         ? path.join(__dirname, 'preload.js') 
         : path.join(__dirname, 'preload.cjs')
     },

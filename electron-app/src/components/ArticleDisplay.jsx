@@ -1,6 +1,7 @@
 import { useAppContext } from '../context/AppContext';
 import { useState, useRef, useEffect } from 'react';
 import { marked } from 'marked';
+import { summarizeTokenUsage, formatCost } from '../services/tokenPricingService';
 
 const ArticleDisplay = () => {
   const { 
@@ -8,7 +9,8 @@ const ArticleDisplay = () => {
     finalArticle, 
     generatedArticle, 
     verificationFeedback, 
-    iterationCount 
+    iterationCount,
+    tokenUsages
   } = useAppContext();
   
   // Only using rich text mode now
@@ -213,21 +215,82 @@ const ArticleDisplay = () => {
       </div>
       
       {currentStep === 'complete' && (
-        <div className="mt-4 flex flex-wrap justify-between items-center">
-          <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-            {copySuccess}
+        <>
+          {/* Token usage and cost stats */}
+          {tokenUsages && tokenUsages.length > 0 && (
+            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-md text-sm">
+              <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-3">API Usage Statistics</h4>
+              
+              {(() => {
+                const stats = summarizeTokenUsage(tokenUsages);
+                return (
+                  <>
+                    {/* Summary section */}
+                    <div className="bg-white dark:bg-gray-800 rounded p-3 mb-3 shadow-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="text-gray-600 dark:text-gray-300">Total Input Tokens:</div>
+                        <div className="text-right font-mono font-medium">{stats.totalInputTokens.toLocaleString()}</div>
+                        
+                        <div className="text-gray-600 dark:text-gray-300">Total Output Tokens:</div>
+                        <div className="text-right font-mono font-medium">{stats.totalOutputTokens.toLocaleString()}</div>
+                        
+                        <div className="text-gray-600 dark:text-gray-300">Total Tokens:</div>
+                        <div className="text-right font-mono font-medium">{stats.totalTokens.toLocaleString()}</div>
+                        
+                        <div className="text-gray-600 dark:text-gray-300 font-medium">Estimated Total Cost:</div>
+                        <div className="text-right font-mono font-medium text-blue-600 dark:text-blue-400">{formatCost(stats.totalCost)}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Detailed API calls section */}
+                    <h5 className="text-gray-700 dark:text-gray-300 font-medium mb-2">Itemized API Calls</h5>
+                    <div className="bg-white dark:bg-gray-800 rounded p-2 overflow-auto max-h-64 shadow-sm">
+                      <table className="w-full text-xs">
+                        <thead className="border-b border-gray-200 dark:border-gray-700">
+                          <tr>
+                            <th className="text-left py-2 px-1 font-medium text-gray-600 dark:text-gray-400">Operation</th>
+                            <th className="text-center py-2 px-1 font-medium text-gray-600 dark:text-gray-400">Model</th>
+                            <th className="text-right py-2 px-1 font-medium text-gray-600 dark:text-gray-400">Input</th>
+                            <th className="text-right py-2 px-1 font-medium text-gray-600 dark:text-gray-400">Output</th>
+                            <th className="text-right py-2 px-1 font-medium text-gray-600 dark:text-gray-400">Cost</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.detailedUsage.map((usage, index) => (
+                            <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="py-1.5 px-1 text-gray-700 dark:text-gray-300">{usage.operation || 'API Call'}</td>
+                              <td className="py-1.5 px-1 text-center text-gray-600 dark:text-gray-400 font-mono text-xs">{usage.model}</td>
+                              <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-400 font-mono">{usage.inputTokens.toLocaleString()}</td>
+                              <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-400 font-mono">{usage.outputTokens.toLocaleString()}</td>
+                              <td className="py-1.5 px-1 text-right text-blue-600 dark:text-blue-400 font-mono">{formatCost(usage.cost)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          
+          {/* Copy button row */}
+          <div className="mt-4 flex flex-wrap justify-between items-center">
+            <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+              {copySuccess}
+            </div>
+            <button
+              onClick={copyToClipboard}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md transition-colors flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+              </svg>
+              Copy {displayMode === 'rich' ? 'Rich Text' : displayMode === 'markdown' ? 'Markdown' : 'HTML Fragment'}
+            </button>
           </div>
-          <button
-            onClick={copyToClipboard}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md transition-colors flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-            </svg>
-            Copy {displayMode === 'rich' ? 'Rich Text' : displayMode === 'markdown' ? 'Markdown' : 'HTML Fragment'}
-          </button>
-        </div>
+        </>
       )}
     </div>
   );

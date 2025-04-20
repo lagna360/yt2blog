@@ -76,6 +76,12 @@ export const AppProvider = ({ children }) => {
   // Branding toggle - whether to keep or remove original branding
   const [keepBranding, setKeepBranding] = useState(false);
   
+  // Internet search toggle - whether to use web search to enhance article content
+  const [searchInternet, setSearchInternet] = useState(true);
+  
+  // Token usage tracking for API cost calculation
+  const [tokenUsages, setTokenUsages] = useState([]);
+  
   // Add URL field
   const addYoutubeUrl = () => {
     setYoutubeUrls([...youtubeUrls, '']);
@@ -132,6 +138,11 @@ export const AppProvider = ({ children }) => {
     // Don't reset keepBranding as it's a user preference
   };
   
+  // Go back to edit inputs without clearing them
+  const editInputs = () => {
+    setCurrentStep('input');
+  };
+
   // Reset everything including API keys
   const resetAll = async () => {
     resetForm();
@@ -180,11 +191,16 @@ export const AppProvider = ({ children }) => {
         setError,
         keepBranding,
         setKeepBranding,
+        searchInternet,
+        setSearchInternet,
+        tokenUsages,
+        setTokenUsages,
         addYoutubeUrl,
         removeYoutubeUrl,
         updateYoutubeUrl,
         resetForm,
-        resetAll
+        resetAll,
+        editInputs
       }}
     >
       {children}
