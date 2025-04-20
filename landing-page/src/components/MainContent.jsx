@@ -59,7 +59,7 @@ function MainContent() {
               </svg>
               <h3 className="text-xl font-semibold mb-3">macOS</h3>
               <p className="text-gray-400 mb-4">For macOS 10.15 and above</p>
-              <a href="https://github.com/lagna360/yt2blog/releases/download/v1.0.0/yt2blog-mac.dmg" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+              <a href="https://github.com/lagna360/yt2blog/releases/latest/download/yt2blog-mac.dmg" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
                 Download for Mac
               </a>
             </div>
@@ -71,7 +71,7 @@ function MainContent() {
               </svg>
               <h3 className="text-xl font-semibold mb-3">Windows</h3>
               <p className="text-gray-400 mb-4">For Windows 10 and above</p>
-              <a href="https://github.com/lagna360/yt2blog/releases/download/v1.0.0/yt2blog-win.exe" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+              <a href="https://github.com/lagna360/yt2blog/releases/latest/download/yt2blog-win.exe" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
                 Download for Windows
               </a>
             </div>
@@ -83,7 +83,7 @@ function MainContent() {
               </svg>
               <h3 className="text-xl font-semibold mb-3">Linux</h3>
               <p className="text-gray-400 mb-4">For major Linux distributions</p>
-              <a href="https://github.com/lagna360/yt2blog/releases/download/v1.0.0/yt2blog-linux.AppImage" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+              <a href="https://github.com/lagna360/yt2blog/releases/latest/download/yt2blog-linux.AppImage" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
                 Download for Linux
               </a>
             </div>
