@@ -42,6 +42,10 @@ export const validateApiKey = async (apiKey) => {
   }
 };
 
+import { createErrorObject } from '../utils/errorUtils';
+import { performWebSearch } from './webSearchService';
+import { calculateTokenCost } from './tokenPricingService';
+
 /**
  * Generate an article using the LLM API with parallel generation and refinement
  * @param {string} apiKey - LLM API key
@@ -49,10 +53,12 @@ export const validateApiKey = async (apiKey) => {
  * @param {string} instruction - User's instruction for article generation
  * @param {Function} updateProgress - Function to update generation progress
  * @param {boolean} keepBranding - Whether to keep original branding in the article
+ * @param {boolean} searchInternet - Whether to use web search for additional content
  * @param {string} feedback - Optional feedback from verification for improvement
+ * @param {Function} onTokenUsage - Callback to record token usage
  * @returns {Promise<string>} - Generated article
  */
-export const generateArticle = async (apiKey, content, instruction, updateProgress, keepBranding = false, feedback = null) => {
+export const generateArticle = async (apiKey, content, instruction, updateProgress, keepBranding = false, searchInternet = false, feedback = null, onTokenUsage = null) => {
   if (!apiKey) {
     throw new Error('API key is required');
   }
@@ -86,16 +92,62 @@ Transcript: ${video.transcript}
     `;
   }).join('\n\n');
   
+  // If searchInternet is true, perform web search to enhance content
+  let webSearchResults = null;
+  if (searchInternet) {
+    try {
+      if (updateProgress) {
+        updateProgress('web-search', 'in-progress');
+      }
+      
+      // Extract main topics from video titles for the search
+      const titles = Object.values(content).map(video => video.title).join(", ");
+      webSearchResults = await performWebSearch(apiKey, titles, (tokenCost) => {
+        if (onTokenUsage) onTokenUsage(tokenCost);
+      });
+      
+      if (updateProgress) {
+        updateProgress('web-search', 'complete');
+      }
+      
+      console.log('Web search performed successfully:', webSearchResults.summary);
+      console.log('Sources:', webSearchResults.sources.length);
+    } catch (error) {
+      console.error('Error performing web search:', error);
+      if (updateProgress) {
+        updateProgress('web-search', 'error');
+      }
+      // Continue without web search if it fails
+      webSearchResults = null;
+    }
+  }
+  
   // Base prompt for all generators
   const basePrompt = `
 You are tasked with writing an article based on the following YouTube video content:
 
 ${videoSummaries}
 
+${webSearchResults ? `ADDITIONAL WEB SEARCH INFORMATION:
+The following information was gathered from recent web searches to supplement the video content. Use this information to enhance the article with additional facts, statistics, and recent developments.
+
+${webSearchResults.summary}
+
+SOURCES:
+${webSearchResults.sources.map((source, index) => `${index + 1}. ${source.title} - ${source.url}`).join('\n')}
+` : ''}
+
 The article should follow these instructions:
 ${instruction}
 
-IMPORTANT: Remove all branding and references to original source content. Do not mention YouTube, channel names, or any other identifying information from the original videos.
+IMPORTANT: Remove all branding and references to original source content from the main article content. Do not mention YouTube, channel names, or any other identifying information from the original videos within the article body.
+
+${keepBranding ? `REFERENCES SECTION: After completing the main article content, add a "References" section at the very end that lists all sources used. Format as follows:
+1. List each YouTube video with title, channel name, and full URL
+2. List each web search source with title and URL
+Make sure all URLs are included for proper citation.` : 'Do NOT include any references section at the end.'}
+
+${webSearchResults ? 'When incorporating information from web search results, prioritize the YouTube content as the primary source, but use the web search data to add depth, context, and up-to-date information.' : ''}
 ${feedback ? `
 
 Previous feedback for improvement:
@@ -137,11 +189,20 @@ ${feedback}` : ''}
         updateProgress(config.progressId, 'in-progress');
       }
       
+      // Generate article for this style
       const article = await generateSingleArticle(
         apiKey, 
         basePrompt, 
         config.systemPrompt, 
-        config.temperature
+        config.temperature,
+        // Pass style label for better token tracking
+        (tokenCost) => {
+          if (onTokenUsage) {
+            // Override operation name for clearer tracking
+            tokenCost.operation = `Generate ${config.label}`;
+            onTokenUsage(tokenCost);
+          }
+        }
       );
       
       // Mark generation as complete
@@ -156,7 +217,15 @@ ${feedback}` : ''}
         apiKey,
         article,
         instruction,
-        config.label
+        config.label,
+        // Pass operation name for better token tracking
+        (tokenCost) => {
+          if (onTokenUsage) {
+            // Override operation name for clearer tracking
+            tokenCost.operation = `Review ${config.label}`;
+            onTokenUsage(tokenCost);
+          }
+        }
       );
       
       // Mark verification as complete
@@ -189,7 +258,15 @@ ${feedback}` : ''}
       articlesWithCriticism,
       instruction,
       videoSummaries,
-      keepBranding
+      keepBranding,
+      // Pass operation name for better token tracking
+      (tokenCost) => {
+        if (onTokenUsage) {
+          // Override operation name for clearer tracking
+          tokenCost.operation = 'Final Article Refinement';
+          onTokenUsage(tokenCost);
+        }
+      }
     );
     
     // Mark final generation as complete
@@ -210,43 +287,77 @@ ${feedback}` : ''}
  * @param {string} prompt - The base prompt
  * @param {string} systemPrompt - System instruction
  * @param {number} temperature - Temperature setting
+ * @param {Function} onTokenUsage - Callback to record token usage
  * @returns {Promise<string>} - Generated article
  */
-async function generateSingleArticle(apiKey, prompt, systemPrompt, temperature) {
-  const baseUrl = 'https://api.openai.com/v1/chat/completions';
-  
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: temperature
-    })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    if (response.status === 401) {
-      throw new Error('Invalid OpenAI API key. Please check your key and try again.');
+async function generateSingleArticle(apiKey, prompt, systemPrompt, temperature, onTokenUsage = null) {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: temperature || 0.7,
+        max_tokens: 4000
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error?.message || `API error: ${response.status}`
+      );
     }
-    throw new Error(errorData.error?.message || 'Failed to generate article');
+    
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Failed to generate article');
+    }
+    
+    // Track token usage and calculate cost
+    if (data.usage && onTokenUsage) {
+      // Extract token usage from the response
+      // If only total_tokens is available (new API format), estimate input/output split
+      let input_tokens = data.usage.input_tokens || 0;
+      let output_tokens = data.usage.output_tokens || 0;
+      const total_tokens = data.usage.total_tokens || 0;
+      
+      // If we have total but not input/output tokens, estimate a 30/70 split (typical for chat)
+      if (total_tokens > 0 && input_tokens === 0 && output_tokens === 0) {
+        input_tokens = Math.round(total_tokens * 0.3);
+        output_tokens = total_tokens - input_tokens;
+      }
+      
+      console.log('TOKEN USAGE:', { input_tokens, output_tokens, total_tokens });
+      
+      // Determine the model (fallback to gpt-4o if not specified)
+      const model = data.model || 'gpt-4o';
+      // Create a generic operation name that will be overridden by the caller
+      const operationType = 'Article Generation';
+      const tokenCost = calculateTokenCost(model, input_tokens, output_tokens, operationType);
+      onTokenUsage(tokenCost);
+    }
+
+    const generatedText = data.choices[0].message.content;
+    return generatedText;
+  } catch (error) {
+    console.error('Error generating article:', error);
+    throw error;
   }
-  
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 /**
@@ -255,9 +366,10 @@ async function generateSingleArticle(apiKey, prompt, systemPrompt, temperature) 
  * @param {string} article - The article to criticize
  * @param {string} instruction - Original instruction
  * @param {string} styleLabel - Label for the article style
+ * @param {Function} onTokenUsage - Callback to record token usage
  * @returns {Promise<string>} - Criticism of the article
  */
-async function criticizeArticle(apiKey, article, instruction, styleLabel) {
+async function criticizeArticle(apiKey, article, instruction, styleLabel, onTokenUsage = null) {
   const baseUrl = 'https://api.openai.com/v1/chat/completions';
   
   // Calculate word count
@@ -286,35 +398,65 @@ Be specific about whether the word count matches any requirements in the instruc
 Be specific and constructive in your criticism.
   `;
   
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert editor who provides detailed, honest, and constructive criticism.'
-        },
-        {
-          role: 'user',
-          content: criticismPrompt
-        }
-      ],
-      temperature: 0.4
-    })
-  });
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert editor who provides detailed, honest, and constructive criticism.'
+          },
+          {
+            role: 'user',
+            content: criticismPrompt
+          }
+        ],
+        temperature: 0.4
+      })
+    });
   
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Failed to generate criticism');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to generate criticism');
+    }
+    
+    const data = await response.json();
+    
+    // Track token usage and calculate cost
+    if (data.usage && onTokenUsage) {
+      // Extract token usage from the response
+      // If only total_tokens is available (new API format), estimate input/output split
+      let input_tokens = data.usage.input_tokens || 0;
+      let output_tokens = data.usage.output_tokens || 0;
+      const total_tokens = data.usage.total_tokens || 0;
+      
+      // If we have total but not input/output tokens, estimate a 30/70 split (typical for chat)
+      if (total_tokens > 0 && input_tokens === 0 && output_tokens === 0) {
+        input_tokens = Math.round(total_tokens * 0.3);
+        output_tokens = total_tokens - input_tokens;
+      }
+      
+      console.log('TOKEN USAGE:', { input_tokens, output_tokens, total_tokens });
+      
+      // Determine the model (fallback to gpt-4o if not specified)
+      const model = data.model || 'gpt-4o';
+      // Create a generic operation name that will be overridden by the caller
+      const operationType = 'Article Generation';
+      const tokenCost = calculateTokenCost(model, input_tokens, output_tokens, operationType);
+      onTokenUsage(tokenCost);
+    }
+    
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Error criticizing article:', error);
+    throw error;
   }
-  
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 /**
@@ -323,9 +465,11 @@ Be specific and constructive in your criticism.
  * @param {Array} articlesWithCriticism - Array of articles with their criticisms
  * @param {string} instruction - Original instruction
  * @param {string} videoSummaries - Original video content summaries
+ * @param {boolean} keepBranding - Whether to keep original branding
+ * @param {Function} onTokenUsage - Callback to record token usage
  * @returns {Promise<string>} - Final refined article
  */
-async function createRefinedArticle(apiKey, articlesWithCriticism, instruction, videoSummaries, keepBranding = false) {
+async function createRefinedArticle(apiKey, articlesWithCriticism, instruction, videoSummaries, keepBranding = false, onTokenUsage = null) {
   const baseUrl = 'https://api.openai.com/v1/chat/completions';
   
   // Create a prompt that includes all articles and their criticisms
@@ -364,42 +508,74 @@ ${item.criticism}
 3. Addresses the criticisms raised for each article
 4. Creates a coherent, high-quality piece that is better than any of the individual articles
 5. IMPORTANT: If the instructions specified a word count, make sure your article meets that exact word count requirement
-${!keepBranding ? '6. CRITICAL: Remove all branding and references to original source content. Do not mention YouTube, channel names, or any other identifying information from the original videos.' : '6. You may retain references to original sources, channel names, and other identifying information from the original videos if they add value to the content.'}
+6. CRITICAL: Remove all branding and references to original source content from the main article content. Do not mention YouTube, channel names, or any other identifying information from the original videos within the article body.
+
+${keepBranding ? '7. After completing the main article content, add a "References" section at the very end that lists all sources used. Format as follows:\n   a. List each YouTube video with title, channel name, and full URL\n   b. List each web search source with title and URL\n   Make sure all URLs are included for proper citation.' : '7. Do NOT include any references section at the end of the article.'}
 
 Before submitting your final article, count the words and verify it meets any word count requirements specified in the instructions.
 
 Write the final article now.
 `;
   
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a master editor and content creator who can synthesize the best elements of multiple articles while addressing their weaknesses.'
-        },
-        {
-          role: 'user',
-          content: refinementPrompt
-        }
-      ],
-      temperature: 0.6
-    })
-  });
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a master editor and content creator who can synthesize the best elements of multiple articles while addressing their weaknesses.'
+          },
+          {
+            role: 'user',
+            content: refinementPrompt
+          }
+        ],
+        temperature: 0.6
+      })
+    });
   
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Failed to generate refined article');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to create refined article');
+    }
+    
+    const data = await response.json();
+    
+    // Track token usage and calculate cost
+    if (data.usage && onTokenUsage) {
+      // Extract token usage from the response
+      // If only total_tokens is available (new API format), estimate input/output split
+      let input_tokens = data.usage.input_tokens || 0;
+      let output_tokens = data.usage.output_tokens || 0;
+      const total_tokens = data.usage.total_tokens || 0;
+      
+      // If we have total but not input/output tokens, estimate a 30/70 split (typical for chat)
+      if (total_tokens > 0 && input_tokens === 0 && output_tokens === 0) {
+        input_tokens = Math.round(total_tokens * 0.3);
+        output_tokens = total_tokens - input_tokens;
+      }
+      
+      console.log('TOKEN USAGE:', { input_tokens, output_tokens, total_tokens });
+      
+      // Determine the model (fallback to gpt-4o if not specified)
+      const model = data.model || 'gpt-4o';
+      // Create a generic operation name that will be overridden by the caller
+      const operationType = 'Article Generation';
+      const tokenCost = calculateTokenCost(model, input_tokens, output_tokens, operationType);
+      onTokenUsage(tokenCost);
+    }
+    
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Error creating refined article:', error);
+    throw error;
   }
-  
-  const data = await response.json();
-  return data.choices[0].message.content;
 };
 
 /**
@@ -560,33 +736,25 @@ export const enhanceInstructions = async (apiKey, originalInstruction) => {
   console.log('Enhancing user instructions...');
   
   const prompt = `
-You are an expert content strategist helping a user create better instructions for an AI article generator.
+You are an expert content strategist helping a user enhance their instructions for an AI article generator. 
 
-The user is using a tool that converts YouTube videos into blog articles. The user provides:
-1. YouTube video URLs (which are processed to extract transcripts and content)
-2. Instructions for how they want the article to be written
-
-IMPORTANT: After the article is generated, it will be evaluated by an AI verifier that checks the quality and adherence to instructions. The verifier analyzes the article based on these criteria:
-- Adherence to instructions (how well it follows the given instructions)
-- Content quality (depth, accuracy, and relevance)
-- Structure and organization (logical flow, clarity)
-- Writing style and engagement (readability, tone)
-- Overall impact and value to the reader
-
-The user has provided the following instructions:
+The user has provided the following instructions for an article based on YouTube video content:
 "${originalInstruction}"
 
-Your task is to enhance these instructions to create a more detailed, specific, and effective prompt that will result in a better article AND make it easier for the verification system to evaluate. Consider:
+Your task is to rewrite and enhance these instructions with more detail and clarity. The result should be a single, cohesive set of instructions that:
 
-- Adding specific details about tone, style, and voice (be explicit about what tone means)
-- Clarifying the target audience (be specific about who will read this)
-- Suggesting structure elements (specific headings, sections, etc.)
-- Specifying content priorities (what to emphasize or de-emphasize)
-- Including measurable quality criteria that the verifier can check
-- Making requirements explicit and unambiguous
-- Adding any other elements that would improve the quality of the generated article
+1. Maintains the user's original intent
+2. Adds specific details about tone, style, and target audience
+3. Suggests specific structure elements (headings, sections)
+4. Specifies content priorities and quality criteria
 
-Provide an enhanced version of the instructions that maintains the user's original intent but adds helpful specificity and guidance that will make both generation and verification more effective.
+IMPORTANT FORMATTING REQUIREMENTS:
+- Return ONLY the enhanced instructions without any explanations, meta-commentary, or notes about what you changed
+- Do not include text like "Enhanced Instructions:" or any other labels or headers
+- Do not use markdown formatting like "---" dividers
+- Do not explain your process or reasoning
+
+Simply provide the enhanced instructions as plain text that could be directly used as input for the article generator.
 `;
   
   try {
@@ -603,14 +771,14 @@ Provide an enhanced version of the instructions that maintains the user's origin
         messages: [
           {
             role: 'system',
-            content: 'You are an expert content strategist who helps users create better instructions for AI content generation.'
+            content: 'You are an expert content strategist. When enhancing instructions, you provide only the enhanced instructions without any explanations, meta-commentary, or formatting beyond what is needed for the article itself.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.7
+        temperature: 0.4
       })
     });
     

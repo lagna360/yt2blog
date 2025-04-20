@@ -17,6 +17,7 @@ const ApiKeyInput = () => {
   } = useAppContext();
   const [showYoutubeKey, setShowYoutubeKey] = useState(false);
   const [showLlmKey, setShowLlmKey] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // LLM API key validation states
   const [isValidatingLlmKey, setIsValidatingLlmKey] = useState(false);
@@ -117,22 +118,52 @@ const ApiKeyInput = () => {
   return (
     <div className="bg-gray-100 dark:bg-gray-800 p-5 rounded-lg shadow-md mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">API Keys</h2>
-        <button
-          onClick={resetAll}
-          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded shadow-sm transition-colors"
-        >
-          Reset Keys
-        </button>
-      </div>
-      <div className="text-sm text-gray-600 dark:text-gray-400 mb-5 min-h-[2.5rem]">
-        <p>Your API keys are stored securely on your device and are never sent to any server.</p>
-        {(youtubeApiKey || llmApiKey) && !youtubeKeyValidationError && !llmKeyValidationError && 
-          <p className="mt-1 text-green-600 dark:text-green-400">Validated keys are saved securely.</p>
-        }
+        <div className="flex items-center">
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mr-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 focus:outline-none"
+            aria-expanded={isExpanded}
+            aria-label="Toggle configuration section"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className={`h-5 w-5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
+              viewBox="0 0 20 20" 
+              fill="currentColor"
+            >
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>Configuration</h2>
+        </div>
+        {isExpanded && (
+          <button
+            onClick={resetAll}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded shadow-sm transition-colors"
+          >
+            Reset Keys
+          </button>
+        )}
       </div>
       
-      <div className="grid grid-cols-1 gap-5">
+      {!isExpanded && (
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+          <p>Set up your API keys {(youtubeApiKey || llmApiKey) && !youtubeKeyValidationError && !llmKeyValidationError && 
+            <span className="text-green-600 dark:text-green-400">• Keys validated ✓</span>}
+          </p>
+        </div>
+      )}
+      
+      {isExpanded && (
+        <>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-5 min-h-[2.5rem]">
+            <p>Your API keys are stored securely on your device and are never sent to any server.</p>
+            {(youtubeApiKey || llmApiKey) && !youtubeKeyValidationError && !llmKeyValidationError && 
+              <p className="mt-1 text-green-600 dark:text-green-400">Validated keys are saved securely.</p>
+            }
+          </div>
+          
+          <div className="grid grid-cols-1 gap-5">
         {/* YouTube API Key */}
         <div>
           <label 
@@ -266,7 +297,9 @@ const ApiKeyInput = () => {
             )}
           </div>
         </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

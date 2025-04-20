@@ -5,6 +5,7 @@ const ProcessingFlowChart = () => {
     currentStep, 
     isProcessing, 
     generationProgress = {}, 
+    searchInternet
   } = useAppContext();
   
   // Only show if we're past the input step
@@ -57,8 +58,8 @@ const ProcessingFlowChart = () => {
         : 'text-gray-500 dark:text-gray-400';
     
     return (
-      <div className={`p-3 rounded-lg border ${bgColor} transition-all duration-300 flex items-center`}>
-        <div className="mr-3">
+      <div className={`p-3 rounded-lg border ${bgColor} transition-all duration-300 flex items-center h-full min-h-[4.5rem]`}>
+        <div className="mr-3 flex-shrink-0">
           {renderStatusIcon(status)}
         </div>
         <div>
@@ -115,9 +116,32 @@ const ProcessingFlowChart = () => {
     <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
       <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Processing Flow</h2>
       
-      {/* Generation Phase */}
+      {/* Phase 1: Content Collection */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Phase 1: Parallel Content Generation</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Phase 1: Content Collection</h3>
+        <div className="space-y-4">
+          <ProcessBox 
+            title="Content Scraping" 
+            status={currentStep === 'scraping' ? 'in-progress' : (currentStep === 'processing' || currentStep === 'complete') ? 'complete' : 'pending'}
+            description="Extracting video data"
+          />
+          
+          {searchInternet && (
+            <ProcessBox 
+              title="Web Search" 
+              status={getStageStatus('web-search')}
+              description="Finding latest information"
+            />
+          )}
+        </div>
+      </div>
+      
+      {/* Connector */}
+      <ConnectorArrow active={currentStep === 'processing' || currentStep === 'complete'} />
+      
+      {/* Phase 2: Content Generation */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Phase 2: Content Generation</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {generationStyles.map(style => (
             <div key={style.id} className="flex flex-col space-y-2">
@@ -126,7 +150,6 @@ const ProcessingFlowChart = () => {
                 status={getStageStatus(`generation-${style.id}`)}
                 description={style.description}
               />
-              {/* Verification step for this style */}
               <ProcessBox 
                 title={style.verificationTitle}
                 status={getStageStatus(style.verificationId)}
@@ -140,14 +163,14 @@ const ProcessingFlowChart = () => {
       {/* Connector */}
       <ConnectorArrow active={generationProgress['verification-complete']} />
       
-      {/* Final Generation Phase */}
+      {/* Phase 3: Final Article Creation */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Phase 2: Final Article Creation</h3>
-        <div className="max-w-md mx-auto">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Phase 3: Final Article Creation</h3>
+        <div className="mt-3">
           <ProcessBox 
             title="Refined Article"
             status={getStageStatus('final-generation')}
-            description="Creating optimized final article from all inputs"
+            description="Creating optimized final article"
           />
         </div>
       </div>

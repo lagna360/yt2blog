@@ -11,7 +11,7 @@ import AboutDialog from './AboutDialog';
 import { useAppContext } from '../context/AppContext';
 
 const MainPage = () => {
-  const { currentStep, resetForm } = useAppContext();
+  const { currentStep, resetForm, editInputs } = useAppContext();
   const [statusMessage, setStatusMessage] = useState('Ready');
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   
@@ -23,21 +23,31 @@ const MainPage = () => {
   // Register menu event handlers
   useEffect(() => {
     console.log('Setting up menu handlers, window.electron available:', !!window.electron);
+    let unsubscribeNewArticle = () => {};
+    let unsubscribeShowAbout = () => {};
+
     // Check if we're running in Electron
     if (window.electron) {
       // Handle "New Article" menu action
-      window.electron.onMenuNewArticle(() => {
+      unsubscribeNewArticle = window.electron.onMenuNewArticle(() => {
         resetForm();
         setStatusMessage('New article started');
       });
 
       // Handle "About" menu action
-      window.electron.onMenuShowAbout(() => {
+      unsubscribeShowAbout = window.electron.onMenuShowAbout(() => {
         setShowAboutDialog(true);
         setStatusMessage('About dialog opened');
       });
     }
-  }, [resetForm]);
+
+    // Cleanup function to remove listeners on unmount or re-render
+    return () => {
+      console.log('Cleaning up menu handlers');
+      unsubscribeNewArticle();
+      unsubscribeShowAbout();
+    };
+  }, []); // Run only once on mount
   
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -48,10 +58,19 @@ const MainPage = () => {
             <div className="flex space-x-3">
               <button 
                 onClick={resetForm} 
-                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white transition-colors" 
+                className={`px-3 py-1.5 rounded text-sm text-white transition-colors ${currentStep !== 'complete' ? 'bg-gray-500 dark:bg-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600'}`} 
                 aria-label="Reset form"
+                disabled={currentStep !== 'complete'}
               >
                 New Article
+              </button>
+              <button 
+                onClick={editInputs} 
+                className={`px-3 py-1.5 rounded text-sm text-white transition-colors ${currentStep !== 'complete' ? 'bg-gray-500 dark:bg-gray-600 cursor-not-allowed' : 'bg-blue-700 hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600'}`} 
+                aria-label="Edit inputs"
+                disabled={currentStep !== 'complete'}
+              >
+                Edit Inputs
               </button>
             </div>
           </div>
@@ -76,20 +95,12 @@ const MainPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Left column for API keys and YouTube URLs */}
                 <div className="lg:col-span-5 space-y-6">
-                  <div className="bg-gray-800/50 p-4 rounded-lg shadow-lg">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-200">Configuration</h2>
-                    <p className="text-sm text-gray-400 mb-4">Set up your API keys and YouTube sources</p>
-                  </div>
                   <ApiKeyInput />
                   <YoutubeUrlInput />
                 </div>
                 
                 {/* Right column for Instructions and Article Form */}
                 <div className="lg:col-span-7 space-y-6">
-                  <div className="bg-gray-800/50 p-4 rounded-lg shadow-lg">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-200">Content Generation</h2>
-                    <p className="text-sm text-gray-400 mb-4">Customize how your article will be written</p>
-                  </div>
                   <InstructionInput />
                   <ArticleForm />
                 </div>
