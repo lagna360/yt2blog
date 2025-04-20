@@ -7,9 +7,8 @@ on:
     tags:
       - 'v*' # Trigger workflow when a tag starting with 'v' is pushed
 
-# Explicitly specify the permissions needed
 permissions:
-  contents: write # This is required for creating releases and uploading assets
+  contents: write # Required for creating releases and uploading assets
 
 jobs:
   create-release:
@@ -20,131 +19,117 @@ jobs:
     steps:
       - name: Create Release
         id: create-release
-        uses: actions/github-script@v7
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          script: |
-            const { data } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/', ''),
-              name: context.ref.replace('refs/tags/', ''),
-              draft: false,
-              prerelease: false,
-              generate_release_notes: true
-            });
-            return { id: data.id, upload_url: data.upload_url };
+          tag_name: ${{ github.ref_name }}
+          release_name: YT2Blog ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            YT2Blog ${{ github.ref_name }} Release
+            
+            This release includes the latest app binaries for all platforms.
 
-  build:
+  build-mac:
     needs: create-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
+    runs-on: macos-latest
     steps:
-      - name: Check out Git repository
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
+        
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install dependencies and build
+          
+      - name: Install dependencies
         working-directory: ./electron-app
-        run: |
-          npm install
-          npm run build
-
-      # macOS build
-      - name: Build macOS
-        if: matrix.os == 'macos-latest'
+        run: npm install
+        
+      - name: Build app
+        working-directory: ./electron-app
+        run: npm run build
+        
+      - name: Build macOS binary
         working-directory: ./electron-app
         run: npm run electron:build:mac
-
-      # Upload macOS DMG
-      - name: Upload macOS DMG
-        if: matrix.os == 'macos-latest'
-        uses: actions/github-script@v7
+        
+      - name: Upload macOS binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          script: |
-            const fs = require('fs');
-            const { repo } = context.repo;
-            const { owner } = context.repo;
-            const release_id = '${{ needs.create-release.outputs.release_id }}';
-            const file_path = './electron-app/release/yt2blog-mac.dmg';
-            
-            if (fs.existsSync(file_path)) {
-              await github.rest.repos.uploadReleaseAsset({
-                owner,
-                repo,
-                release_id,
-                name: 'yt2blog-mac.dmg',
-                data: fs.readFileSync(file_path)
-              });
-              console.log('Uploaded macOS DMG successfully!');
-            } else {
-              console.log('macOS DMG file not found!');
-            }
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./electron-app/release/yt2blog-mac.dmg
+          asset_name: yt2blog-mac.dmg
+          asset_content_type: application/octet-stream
 
-      # Linux build
-      - name: Build Linux
-        if: matrix.os == 'ubuntu-latest'
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        working-directory: ./electron-app
+        run: npm install
+        
+      - name: Build app
+        working-directory: ./electron-app
+        run: npm run build
+        
+      - name: Build Linux binary
         working-directory: ./electron-app
         run: npm run electron:build:linux
-
-      # Upload Linux AppImage
-      - name: Upload Linux AppImage
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/github-script@v7
+        
+      - name: Upload Linux binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          script: |
-            const fs = require('fs');
-            const { repo } = context.repo;
-            const { owner } = context.repo;
-            const release_id = '${{ needs.create-release.outputs.release_id }}';
-            const file_path = './electron-app/release/yt2blog-linux.AppImage';
-            
-            if (fs.existsSync(file_path)) {
-              await github.rest.repos.uploadReleaseAsset({
-                owner,
-                repo,
-                release_id,
-                name: 'yt2blog-linux.AppImage',
-                data: fs.readFileSync(file_path)
-              });
-              console.log('Uploaded Linux AppImage successfully!');
-            } else {
-              console.log('Linux AppImage file not found!');
-            }
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./electron-app/release/yt2blog-linux.AppImage
+          asset_name: yt2blog-linux.AppImage
+          asset_content_type: application/octet-stream
 
-      # Windows build
-      - name: Build Windows
-        if: matrix.os == 'windows-latest'
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        working-directory: ./electron-app
+        run: npm install
+        
+      - name: Build app
+        working-directory: ./electron-app
+        run: npm run build
+        
+      - name: Build Windows binary
         working-directory: ./electron-app
         run: npm run electron:build:win
-
-      # Upload Windows EXE
-      - name: Upload Windows EXE
-        if: matrix.os == 'windows-latest'
-        uses: actions/github-script@v7
+        
+      - name: Upload Windows binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          script: |
-            const fs = require('fs');
-            const { repo } = context.repo;
-            const { owner } = context.repo;
-            const release_id = '${{ needs.create-release.outputs.release_id }}';
-            const file_path = './electron-app/release/yt2blog-win.exe';
-            
-            if (fs.existsSync(file_path)) {
-              await github.rest.repos.uploadReleaseAsset({
-                owner,
-                repo,
-                release_id,
-                name: 'yt2blog-win.exe',
-                data: fs.readFileSync(file_path)
-              });
-              console.log('Uploaded Windows EXE successfully!');
-            } else {
-              console.log('Windows EXE file not found!');
-            }
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./electron-app/release/yt2blog-win.exe
+          asset_name: yt2blog-win.exe
+          asset_content_type: application/octet-stream
